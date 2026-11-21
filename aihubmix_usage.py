@@ -16,9 +16,9 @@ import ahb_render
 import ahb_report
 
 
-BASE_ENV = ("AIHUB", "AIHUBMIX_BASE", "AIHUB_DIRECT")
-KEY_ENV = ("AIHUB_KEY", "AIHUBMIX_API_KEY", "AIHUB_API_KEY")
-MANAGE_ENV = ("AIHUB_MANAGE_KEY", "AIHUBMIX_MANAGE_KEY", "AIHUB_ACCESS_TOKEN")
+BASE_ENV = ("AIHUB_DIRECT", "AIHUBMIX_BASE", "AIHUB")
+KEY_ENV = ("AIHUB_ORIGIN_KEY", "AIHUBMIX_API_KEY", "AIHUB_API_KEY", "AIHUB_KEY")
+MANAGE_ENV = ("AIHUB_MANAGE_KEY", "AIHUBMIX_MANAGE_KEY", "AIHUBMIX_TOKEN", "AIHUB_ACCESS_TOKEN")
 
 
 def _first_env(names) -> str:
@@ -43,12 +43,12 @@ def resolve_manage(explicit: str | None) -> str:
 
 def build_parser() -> argparse.ArgumentParser:
     common = argparse.ArgumentParser(add_help=False)
-    common.add_argument("--base", default=None, help="API base URL (default: $AIHUB, then $AIHUB_DIRECT)")
-    common.add_argument("--key", default=None, help="API key (default: $AIHUB_KEY)")
+    common.add_argument("--base", default=None, help="API base URL (default: $AIHUB_DIRECT, then $AIHUBMIX_BASE, $AIHUB)")
+    common.add_argument("--key", default=None, help="API key (default: $AIHUB_ORIGIN_KEY, then $AIHUBMIX_API_KEY, $AIHUB_KEY)")
     common.add_argument(
         "--manage-key",
         default=None,
-        help="Manage Key / access token for per-key data (default: $AIHUB_MANAGE_KEY)",
+        help="Manage Key / access token for per-key data (default: $AIHUB_MANAGE_KEY, $AIHUBMIX_TOKEN)",
     )
     common.add_argument("--timeout", type=float, default=20.0, help="request timeout seconds (default: 20)")
     common.add_argument("--retries", type=int, default=5, help="retries per request (default: 5)")

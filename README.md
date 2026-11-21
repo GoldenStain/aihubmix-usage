@@ -21,9 +21,9 @@ A trailing `/v1` in the base URL is stripped. The tool reads credentials in this
 
 | Purpose | Environment variable | Option |
 | - | - | - |
-| Base URL | `AIHUB`, `AIHUBMIX_BASE`, `AIHUB_DIRECT` | `--base` |
-| API key | `AIHUB_KEY`, `AIHUBMIX_API_KEY`, `AIHUB_API_KEY` | `--key` |
-| Manage Key (optional) | `AIHUB_MANAGE_KEY`, `AIHUBMIX_MANAGE_KEY`, `AIHUB_ACCESS_TOKEN` | `--manage-key` |
+| Base URL | `AIHUB_DIRECT`, `AIHUBMIX_BASE`, `AIHUB` | `--base` |
+| API key | `AIHUB_ORIGIN_KEY`, `AIHUBMIX_API_KEY`, `AIHUB_API_KEY`, `AIHUB_KEY` | `--key` |
+| Manage Key (optional) | `AIHUB_MANAGE_KEY`, `AIHUBMIX_MANAGE_KEY`, `AIHUBMIX_TOKEN`, `AIHUB_ACCESS_TOKEN` | `--manage-key` |
 
 The tool never prints a full key; it shows a hint such as `sk-abcd…wxyz`.
 
