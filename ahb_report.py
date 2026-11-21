@@ -10,6 +10,7 @@ import ahb_render as render
 
 
 MODEL_LIMIT = 50
+UNLIMITED_LIMIT_USD = 100_000_000.0
 
 
 def redact(token: str) -> str:
@@ -24,9 +25,10 @@ def redact(token: str) -> str:
 def _severity(remaining_pct, warn_pct: float, crit_pct: float) -> str:
     if remaining_pct is None:
         return "cyan"
-    if remaining_pct <= crit_pct:
+    pct = remaining_pct * 100.0
+    if pct <= crit_pct:
         return "red"
-    if remaining_pct <= warn_pct:
+    if pct <= warn_pct:
         return "yellow"
     return "green"
 
@@ -60,6 +62,7 @@ def build_report(
             "soft_limit_usd": None,
             "hard_limit_usd": None,
             "system_hard_limit_usd": None,
+            "unlimited_limit": False,
             "has_payment_method": None,
             "access_until": None,
         },
@@ -87,11 +90,15 @@ def build_report(
         balance["system_hard_limit_usd"] = _opt_float(subscription.get("system_hard_limit_usd"))
         balance["has_payment_method"] = subscription.get("has_payment_method")
         balance["access_until"] = subscription.get("access_until")
-        balance["total"] = (
+        limit = (
             balance["hard_limit_usd"]
             or balance["system_hard_limit_usd"]
             or balance["soft_limit_usd"]
         )
+        if limit is not None and limit >= UNLIMITED_LIMIT_USD:
+            balance["unlimited_limit"] = True
+        elif limit is not None:
+            balance["total"] = limit
     except ahb_api.ApiError as error:
         errors.append(f"subscription: {error}")
 
@@ -105,26 +112,19 @@ def build_report(
     except ahb_api.ApiError as error:
         errors.append(f"usage: {error}")
 
-    if balance["total"] is None and balance["remaining"] is not None:
-        base_used = balance["lifetime_usage_usd"] or 0.0
-        balance["total"] = round(base_used + balance["remaining"], 6)
-    if balance["total"] is not None and balance["remaining"] is not None:
-        balance["used"] = round(balance["total"] - balance["remaining"], 6)
-    elif balance["lifetime_usage_usd"] is not None:
-        balance["used"] = balance["lifetime_usage_usd"]
-
-    if balance["total"] and balance["total"] > 0 and balance["used"] is not None:
-        used_pct = balance["used"] / balance["total"]
-        balance["used_pct"] = min(max(used_pct, 0.0), 1.0)
-        balance["remaining_pct"] = min(max(1.0 - used_pct, 0.0), 1.0)
-
     if manage_key:
         try:
             profile = client.user_self(manage_key)
+            unit = report["quota_per_unit"] or 500000
             report["profile"] = {
                 "username": profile.get("username", ""),
                 "display_name": profile.get("display_name", ""),
+                "request_count": profile.get("request_count"),
             }
+            if balance["remaining"] is None and profile.get("quota") is not None:
+                balance["remaining"] = round(float(profile["quota"]) / unit, 6)
+            if balance["lifetime_usage_usd"] is None and profile.get("used_quota") is not None:
+                balance["lifetime_usage_usd"] = round(float(profile["used_quota"]) / unit, 6)
         except ahb_api.ApiError as error:
             errors.append(f"user/self: {error}")
         try:
@@ -143,6 +143,19 @@ def build_report(
                 )
         except ahb_api.ApiError as error:
             errors.append(f"tokens: {error}")
+
+    if balance["total"] is None and balance["remaining"] is not None and balance["lifetime_usage_usd"] is not None:
+        balance["used"] = balance["lifetime_usage_usd"]
+        balance["total"] = round(balance["used"] + balance["remaining"], 6)
+    elif balance["total"] is not None and balance["remaining"] is not None:
+        balance["used"] = round(balance["total"] - balance["remaining"], 6)
+    elif balance["lifetime_usage_usd"] is not None:
+        balance["used"] = balance["lifetime_usage_usd"]
+
+    if balance["total"] and balance["total"] > 0 and balance["used"] is not None:
+        used_pct = balance["used"] / balance["total"]
+        balance["used_pct"] = min(max(used_pct, 0.0), 1.0)
+        balance["remaining_pct"] = min(max(1.0 - used_pct, 0.0), 1.0)
 
     if include_models:
         try:
@@ -256,7 +269,7 @@ def _render_balance(report: dict, console: render.Console) -> None:
         console.write(
             f"  {render.pad('', 14)}{bar}  {render.ratio_text(balance['used_pct'])} used"
         )
-        if balance["remaining_pct"] <= report["warn_pct"]:
+        if balance["remaining_pct"] * 100.0 <= report["warn_pct"]:
             console.warning(
                 f"  low balance: {render.ratio_text(balance['remaining_pct'])} of quota remaining"
             )
@@ -283,6 +296,8 @@ def _render_account(report: dict, console: render.Console) -> None:
         console.line("system", report["system"]["system_name"])
     console.line("unit", f"{render.human_count(unit)} quota = $1")
     balance = report["balance"]
+    if balance.get("unlimited_limit"):
+        console.line("key limit", "unlimited")
     if balance["has_payment_method"] is not None:
         console.line("payment", "card on file" if balance["has_payment_method"] else "none")
     if report.get("profile"):
