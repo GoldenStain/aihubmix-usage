@@ -130,5 +130,9 @@ def _describe_http(code: int, path: str, detail: str) -> str:
     if hint:
         message += f" ({hint})"
     if detail:
-        message += f": {detail[:200]}"
+        if detail.lstrip().startswith("<"):
+            message += ": HTML error page"
+        else:
+            compact = " ".join(detail.split())
+            message += f": {compact[:200]}"
     return message
